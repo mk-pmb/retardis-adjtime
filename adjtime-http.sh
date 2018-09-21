@@ -161,6 +161,7 @@ function request_httphdr () {
   [[ "$SRV" =~ :[0-9]+$ ]] || SRV+=:80
   local NC_CMD=(
     timeout --signal HUP "${CFG[net-timeout]}"s
+    stdbuf -o0 -e0
     netcat -q "${CFG[net-timeout]}"
     )
   local NC_MAX_VERBOSITY=vvvv
@@ -169,7 +170,8 @@ function request_httphdr () {
   [ "$DBGLV" -ge 2 ] && echo "D: request command: ${NC_CMD[*]}" >&2
   [ "$DBGLV" -ge 3 ] && echo "D: request text: '${REQ//$'\r'/«}'" >&2
   local REQ_START="$(date +%s)"
-  local RPL="$(<<<"$REQ" "${NC_CMD[@]}")"
+  local RPL="$(sed -ure '/^\r?$/q' -- <(
+    ( sleep 1s; echo "$REQ" ) | "${NC_CMD[@]}") )"
   local REQ_END="$(date +%s)"
   local REQ_DURA='?'
   let REQ_DURA="$REQ_END-$REQ_START"
