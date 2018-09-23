@@ -20,7 +20,7 @@
 
 function retardis () {
   local DBGLV="${DEBUGLEVEL:-0}"
-  local -A CFG
+  local -A CFG=()
   local SERVERS=()
   read_config <(defaults_ini) "$HOME"/.{,config/}adjtime-http.ini
   parse_cli_opts "$@" || return $?
@@ -57,6 +57,8 @@ function defaults_ini () {
   case "$1" in
     --head ) ;;
     '' ) INI+="
+      tries       = 3
+      ; ^-- how many attempts per server
       min-delta   = 5
       ; ^-- [seconds] Don't adjust if time differs less than this.
       max-delta   = 12 * 3600
@@ -214,29 +216,37 @@ function adjust_by_httphdr () {
   local DELTA_SEC=
   local DELTA_ABS=
   local SRV=
-  for SRV in "$@"; do
-    HTTP_TS=()
-    request_httphdr "$SRV" || continue
-    DELTA_SEC="${HTTP_TS[5]}"
-    DELTA_ABS="${DELTA_SEC#[+-]}"
-    if [ "$DELTA_ABS" -lt "${CFG[min-delta]}" ]; then
-      [ "$DBGLV" -ge 0 ] && echo 'I: time differs by less than' \
-        "${CFG[min-delta]} seconds, that's good enough."
-      [ -n "${CFG[noadjust-kw]}" ] && echo "${CFG[noadjust-kw]}"
-      return "${CFG[noadjust-rv]:-0}"
-      return 0
-    elif [ "$DELTA_ABS" -gt "${CFG[max-delta]}" ]; then
-      [ "$DBGLV" -ge 0 ] && echo 'I: server time differs by more than' \
-        "${CFG[max-delta]} seconds, can't trust that."
-      continue
-    fi
-    DELTA_ABS='DELTA="$(date +%s --date="'"$DELTA_SEC"' seconds")"; '
-    DELTA_ABS+='[ -n "$DELTA" ] && date -R --set "@$DELTA"'
-    if sudo -E sh -c "$DELTA_ABS"; then
-      [ -n "${CFG[adjusted-kw]}" ] && echo "${CFG[adjusted-kw]}"
-      return "${CFG[adjusted-rv]:-0}"
-      return 0
-    fi
+  local TRIES_MAX="${CFG[tries]:-0}"
+  [ "$TRIES_MAX" -ge 1 ] || TRIES_MAX=1
+  local TRIES_HAD=0
+  while [ "$TRIES_MAX" -gt "$TRIES_HAD" ]; do
+    let TRIES_HAD="$TRIES_HAD+1"
+    for SRV in "$@"; do
+      [ "$DBGLV" -ge 0 ] && echo "I: server $SRV," \
+        "attempt $TRIES_HAD/$TRIES_MAX:"
+      HTTP_TS=()
+      request_httphdr "$SRV" || continue
+      DELTA_SEC="${HTTP_TS[5]}"
+      DELTA_ABS="${DELTA_SEC#[+-]}"
+      if [ "$DELTA_ABS" -lt "${CFG[min-delta]}" ]; then
+        [ "$DBGLV" -ge 0 ] && echo 'I: time differs by less than' \
+          "${CFG[min-delta]} seconds, that's good enough."
+        [ -n "${CFG[noadjust-kw]}" ] && echo "${CFG[noadjust-kw]}"
+        return "${CFG[noadjust-rv]:-0}"
+        return 0
+      elif [ "$DELTA_ABS" -gt "${CFG[max-delta]}" ]; then
+        [ "$DBGLV" -ge 0 ] && echo 'I: server time differs by more than' \
+          "${CFG[max-delta]} seconds, can't trust that."
+        continue
+      fi
+      DELTA_ABS='DELTA="$(date +%s --date="'"$DELTA_SEC"' seconds")"; '
+      DELTA_ABS+='[ -n "$DELTA" ] && date -R --set "@$DELTA"'
+      if sudo -E sh -c "$DELTA_ABS"; then
+        [ -n "${CFG[adjusted-kw]}" ] && echo "${CFG[adjusted-kw]}"
+        return "${CFG[adjusted-rv]:-0}"
+        return 0
+      fi
+    done
   done
   return 5
 }
