@@ -1,0 +1,22 @@
+{ "name": "retardis-adjtime",
+  "version": "1.0.0",
+  "description": "Sync time with your HTTP server, `apt-cacher-ng` or anything else that speaks the Hapless Timestamp Transfer Protocol.",
+  "keywords": [],
+
+  "author": "M.K. (https://github.com/mk-pmb)",
+  "homepage": "https://github.com/mk-pmb/retardis-adjtime/#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mk-pmb/retardis-adjtime.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mk-pmb/retardis-adjtime/issues"
+  },
+  "contributors": [],
+
+  "private": false, "license": "GPL-3.0-or-later",
+  "bin": { "adjtime-http": "adjtime-http.sh" },
+
+
+  "npm vs. BOM = Unexpected token": "-*- coding: UTF-8 -*-"
+}

@@ -19,10 +19,12 @@
 
 
 function retardis () {
+  local SELFPATH="$(readlink -m "$BASH_SOURCE"/..)"
   local DBGLV="${DEBUGLEVEL:-0}"
   local -A CFG=()
   local SERVERS=()
-  read_config <(defaults_ini) "$HOME"/.{,config/}adjtime-http.ini
+  local DFLT_INI="$SELFPATH/defaults.ini"
+  read_config "$DFLT_INI" "$HOME"/.{,config/}adjtime-http.ini
   parse_cli_opts "$@" || return $?
 
   local ABOUT_URL=
@@ -33,14 +35,19 @@ function retardis () {
         'To see the defaults, give `about:defaults.ini` as only argument.'
       echo 'H: Additional options: --quiet --verbose'
       return 0;;
-    about:defaults.ini ) defaults_ini; return 0;;
+    about:defaults.ini )
+      sed -re '
+        /^; -\*- /d
+        /^$/d
+        ' -- "$DFLT_INI"
+      return $?;;
   esac
 
   local FIX_TIMEZONE_SED="$(gen_fix_timezone_sed)"
   config_calc {min,max}-delta || return $?
   case "$ABOUT_URL" in
     about:config )
-      defaults_ini --head
+      echo '[re:tardis]'
       for ABOUT_URL in "${!CFG[@]}"; do
         printf '% 11s = %s\n' "$ABOUT_URL" "${CFG[$ABOUT_URL]}"
       done | sed -re 's~\s+$~~' | LANG=C sort
@@ -49,38 +56,6 @@ function retardis () {
 
   adjust_by_httphdr "${SERVERS[@]}"
   return $?
-}
-
-
-function defaults_ini () {
-  local INI='[re:tardis]'
-  case "$1" in
-    --head ) ;;
-    '' ) INI+="
-      tries       = 3
-      ; ^-- how many attempts per server
-      min-delta   = 5
-      ; ^-- [seconds] Don't adjust if time differs less than this.
-      max-delta   = 12 * 3600
-      ; ^-- [seconds] If time differs more than this, assume server error.
-      no-timezone = GMT
-      ; ^-- Which timezone to assume if not specified by server.
-      user-agent  = adjtime-http/0.2 (re:tardis)
-      http-method = HEAD
-      net-timeout = 30
-      default-url = /cgi-bin/date-header
-      noadjust-rv = 0
-      ; ^-- Select a custom return value to indicate that time differed
-      ;     less than min-delta. Numbers 30..69 are reserved for this.
-      noadjust-kw =
-      ; ^-- In above case, print this keyword to on a line by itself.
-      adjusted-rv = 0
-      adjusted-kw =
-      ; ^-- Like noadjust-{rv,kw} but for when time has been adjusted.
-      ";;
-  esac
-  INI="${INI//$'\n'      /$'\n'}"
-  echo "$INI"
 }
 
 
