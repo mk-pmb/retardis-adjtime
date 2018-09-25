@@ -26,6 +26,7 @@ function retardis () {
   local DFLT_INI="$SELFPATH/defaults.ini"
   read_config "$DFLT_INI" "$HOME"/.{,config/}adjtime-http.ini
   parse_cli_opts "$@" || return $?
+  [ -n "${SERVERS[*]}" ] || return 4$(echo "E: no servers given" >&2)
 
   local ABOUT_URL=
   [ "${SERVERS[0]:0:6}" == about: ] && ABOUT_URL="${SERVERS[*]}"
@@ -194,9 +195,15 @@ function adjust_by_httphdr () {
   local TRIES_MAX="${CFG[tries]:-0}"
   [ "$TRIES_MAX" -ge 1 ] || TRIES_MAX=1
   local TRIES_HAD=0
+  local RETRY_DELAY="${CFG[retry-delay]}"
   while [ "$TRIES_MAX" -gt "$TRIES_HAD" ]; do
+    if [ "$TRIES_HAD" != 0 -a -n "$RETRY_DELAY" ]; then
+      echo "I: gonna retry in $RETRY_DELAY."
+      sleep "$RETRY_DELAY" || return $?
+    fi
     let TRIES_HAD="$TRIES_HAD+1"
     for SRV in "$@"; do
+      [ -n "$SRV" ] || continue
       [ "$DBGLV" -ge 0 ] && echo "I: server $SRV," \
         "attempt $TRIES_HAD/$TRIES_MAX:"
       HTTP_TS=()

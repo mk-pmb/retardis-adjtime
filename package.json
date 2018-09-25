@@ -1,5 +1,5 @@
 { "name": "retardis-adjtime",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Sync time with your HTTP server, `apt-cacher-ng` or anything else that speaks the Hapless Timestamp Transfer Protocol.",
   "keywords": [],
 
