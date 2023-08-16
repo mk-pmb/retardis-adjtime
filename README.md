@@ -1,8 +1,6 @@
 ﻿
-<!--!#echo json="package.json" key="name" underline="=" -->
 re:tardis
 =========
-<!--/#echo -->
 
 <!--#echo json="package.json" key="description" -->
 Sync time with your HTTP server, `apt-cacher-ng` or anything else that speaks
